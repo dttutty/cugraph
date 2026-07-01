@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # from cugraph.utilities.grmat import grmat_gen
-# from cugraph.utilities.pointer_utils import device_of_gpu_pointer
-
 from cugraph.utilities.utils import (
     import_optional,
     ensure_cugraph_obj,

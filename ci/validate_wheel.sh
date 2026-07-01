@@ -28,8 +28,8 @@ if [[ "${package_dir}" == "python/libcugraph" ]]; then
             --max-allowed-size-compressed '825Mi'
         )
     fi
-elif [[ "${package_dir}" != "python/cugraph" ]] && \
-     [[ "${package_dir}" != "python/pylibcugraph" ]]; then
+elif [[ "${package_dir}" != "python/pylibcugraph" ]] && \
+     [[ "${package_dir}" != "python/cugraph" ]]; then
     rapids-echo-stderr "unrecognized package_dir: '${package_dir}'"
     exit 1
 fi

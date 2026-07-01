@@ -101,16 +101,11 @@ NEXT_SHORT_TAG_PEP440=$(python -c "from packaging.version import Version; print(
 NEXT_UCXX_SHORT_TAG_PEP440=$(python -c "from packaging.version import Version; print(Version('${NEXT_UCXX_SHORT_TAG}'))")
 
 DEPENDENCIES=(
-  cudf
   cugraph
+  cudf
   cuxfilter
-  dask-cuda
-  dask-cudf
   libcudf
   libcugraph
-  libcugraph_etl
-  libcugraph-tests
-  libcuvs
   libraft
   librmm
   pylibcudf
@@ -151,22 +146,16 @@ done
 # CI files - context-aware branch references
 for FILE in .github/workflows/*.yaml; do
   sed_runner "/shared-workflows/ s|@.*|@${RAPIDS_BRANCH_NAME}|g" "${FILE}"
-  # Wheel builds install dask-cuda from source, update its branch (context-aware)
-  if [[ "${RUN_CONTEXT}" == "main" ]]; then
-    sed_runner "s|dask-cuda.git@release/[0-9][0-9].[0-9][0-9]|dask-cuda.git@main|g" "${FILE}"
-  elif [[ "${RUN_CONTEXT}" == "release" ]]; then
-    sed_runner "s|dask-cuda.git@main|dask-cuda.git@release/${NEXT_SHORT_TAG}|g" "${FILE}"
-  fi
   sed_runner "s/:[0-9]*\\.[0-9]*-/:${NEXT_SHORT_TAG}-/g" "${FILE}"
 done
 
 # .devcontainer files
-find .devcontainer/ -type f -name devcontainer.json -print0 | while IFS= read -r -d '' filename; do
+if [[ -d .devcontainer ]]; then
+  find .devcontainer/ -type f -name devcontainer.json -print0 | while IFS= read -r -d '' filename; do
     sed_runner "s@rapidsai/devcontainers:[0-9.]*@rapidsai/devcontainers:${NEXT_SHORT_TAG}@g" "${filename}"
     sed_runner "s@rapidsai/devcontainers/features/ucx:[0-9.]*@rapidsai/devcontainers/features/ucx:${NEXT_SHORT_TAG_PEP440}@" "${filename}"
     sed_runner "s@rapidsai/devcontainers/features/cuda:[0-9.]*@rapidsai/devcontainers/features/cuda:${NEXT_SHORT_TAG_PEP440}@" "${filename}"
     sed_runner "s@rapidsai/devcontainers/features/rapids-build-utils:[0-9.]*@rapidsai/devcontainers/features/rapids-build-utils:${NEXT_SHORT_TAG_PEP440}@" "${filename}"
     sed_runner "s@rapids-\${localWorkspaceFolderBasename}-[0-9.]*@rapids-\${localWorkspaceFolderBasename}-${NEXT_SHORT_TAG}@g" "${filename}"
-done
-
-sed_runner "s/:[0-9][0-9]\.[0-9][0-9]/:${NEXT_SHORT_TAG}/" ./notebooks/README.md
+  done
+fi

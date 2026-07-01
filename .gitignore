@@ -17,6 +17,9 @@ DartConfiguration.tcl
 .DS_Store
 rmm_log.txt
 
+## Local LaTeX notes and build artifacts
+latex/
+
 # Unit test / coverage reports
 htmlcov/
 .tox/
@@ -54,7 +57,6 @@ CMakeFiles/
 Debug
 build/
 cpp/build/
-cpp/include/cugraph/ipc_generated/*.h
 cpp/thirdparty/googletest/
 
 ## Eclipse IDE
@@ -83,19 +85,8 @@ datasets/*
 # Jupyter Notebooks
 .ipynb_checkpoints
 
-## Doxygen and Docs
-cpp/doxygen/html
-cpp/doxygen/xml
-docs/cugraph/lib*
-docs/cugraph/api/*
-
 # created by Dask tests
 dask-worker-space/
-
-# Sphinx docs & build artifacts
-docs/cugraph/source/api_docs/api/*
-_html
-_text
 
 # clang tooling
 compile_commands.json

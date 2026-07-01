@@ -5,7 +5,6 @@
 
 #include "sampling/random_walks_impl.cuh"
 
-#include <cugraph/algorithms.hpp>
 #include <cugraph/export.hpp>
 
 namespace cugraph {

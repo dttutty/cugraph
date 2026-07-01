@@ -34,6 +34,7 @@ set(cython_sources
     overlap_coefficients.pyx
     cosine_coefficients.pyx
     katz_centrality.pyx
+    legacy.pyx
     leiden.pyx
     louvain.pyx
     node2vec_random_walks.pyx

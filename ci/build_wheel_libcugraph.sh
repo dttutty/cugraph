@@ -7,6 +7,7 @@ set -euo pipefail
 source rapids-init-pip
 
 package_name="libcugraph"
+dependency_file_key="libcugraph"
 package_dir="python/libcugraph"
 
 rapids-logger "Generating build requirements"
@@ -14,8 +15,8 @@ matrix_selectors="cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VER
 
 rapids-dependency-file-generator \
   --output requirements \
-  --file-key "py_build_${package_name}" \
-  --file-key "py_rapids_build_${package_name}" \
+  --file-key "py_build_${dependency_file_key}" \
+  --file-key "py_rapids_build_${dependency_file_key}" \
   --matrix "${matrix_selectors}" \
 | tee /tmp/requirements-build.txt
 
@@ -31,7 +32,7 @@ rapids-logger "Done build requirements"
 # 0 really means "add --no-build-isolation" (ref: https://github.com/pypa/pip/issues/5735)
 export PIP_NO_BUILD_ISOLATION=0
 
-./ci/build_wheel.sh libcugraph ${package_dir}
+./ci/build_wheel.sh "${package_name}" ${package_dir}
 ./ci/validate_wheel.sh ${package_dir} "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
 
 RAPIDS_PACKAGE_NAME="$(rapids-artifact-name wheel_cpp libcugraph cugraph --cuda "$RAPIDS_CUDA_VERSION")"

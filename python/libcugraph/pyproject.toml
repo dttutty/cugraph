@@ -11,7 +11,7 @@ requires = [
 [project]
 name = "libcugraph"
 dynamic = ["version"]
-description = "cuGraph - RAPIDS GPU Graph Analytics (C++)"
+description = "cuGraph C++/CUDA graph runtime for graph algorithms and sampling"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [
     { name = "NVIDIA Corporation" },
@@ -52,17 +52,18 @@ cmake.version = "CMakeLists.txt"
 minimum-version = "build-system.requires"
 ninja.make-fallback = false
 sdist.reproducible = true
-wheel.packages = ["libcugraph"]
+wheel.packages = ["src/libcugraph"]
 wheel.install-dir = "libcugraph"
 wheel.py-api = "py3"
 
 [tool.scikit-build.metadata.version]
 provider = "scikit_build_core.metadata.regex"
-input = "libcugraph/VERSION"
+input = "src/libcugraph/VERSION"
 regex = "(?P<value>.*)"
 
 [tool.rapids-build-backend]
 build-backend = "scikit_build_core.build"
+commit-files = ["src/libcugraph/GIT_COMMIT"]
 dependencies-file = "../../dependencies.yaml"
 matrix-entry = "cuda_suffixed=true;use_cuda_wheels=true"
 requires = [

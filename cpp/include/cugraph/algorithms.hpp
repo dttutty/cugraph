@@ -1603,7 +1603,6 @@ extract_ego(raft::handle_t const& handle,
  * @param edge_weight_view Optional view object holding edge weights for @p graph_view.
  * @param start_vertices Device span defining the starting vertices
  * @param max_length maximum length of random walk
- * @param seed (optional, defaults to system time), seed for random number generation
  * @return tuple containing device vectors of vertices and the edge weights (if
  *         @p edge_weight_view.has_value() is true)<br>
  *         For each input selector there will be (max_length+1) elements in the
@@ -1617,8 +1616,6 @@ extract_ego(raft::handle_t const& handle,
  *         terminates before max_length the subsequent edge weights will be
  *         set to weight_t{0}.
  */
-// FIXME: Do I care about transposed or not?  I want to be able to operate in either
-// direction.
 template <typename vertex_t, typename edge_t, typename weight_t, bool multi_gpu>
 std::tuple<rmm::device_uvector<vertex_t>, std::optional<rmm::device_uvector<weight_t>>>
 uniform_random_walks(raft::handle_t const& handle,
@@ -1651,7 +1648,6 @@ uniform_random_walks(raft::handle_t const& handle,
  * @param edge_weight_view View object holding edge weights for @p graph_view.
  * @param start_vertices Device span defining the starting vertices
  * @param max_length maximum length of random walk
- * @param seed (optional, defaults to system time), seed for random number generation
  * @return tuple containing device vectors of vertices and the edge weights<br>
  *         For each input selector there will be (max_length+1) elements in the
  *         vertex vector with the starting vertex followed by the subsequent
@@ -1699,7 +1695,6 @@ biased_random_walks(raft::handle_t const& handle,
  * @param max_length maximum length of random walk
  * @param p node2vec return parameter
  * @param q node2vec in-out parameter
- * @param seed (optional, defaults to system time), seed for random number generation
  * @return tuple containing device vectors of vertices and the edge weights<br>
  *         For each input selector there will be (max_length+1) elements in the
  *         vertex vector with the starting vertex followed by the subsequent

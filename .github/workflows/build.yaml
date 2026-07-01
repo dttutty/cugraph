@@ -66,6 +66,7 @@ jobs:
       packages: read
       pull-requests: read
   upload-conda:
+    if: ${{ vars.ENABLE_RAPIDS_PUBLISH == 'true' }}
     needs: [cpp-build, python-build]
     secrets:
       CONDA_RAPIDSAI_NIGHTLY_TOKEN: ${{ secrets.CONDA_RAPIDSAI_NIGHTLY_TOKEN }}
@@ -123,6 +124,7 @@ jobs:
       packages: read
       pull-requests: read
   wheel-publish-libcugraph:
+    if: ${{ vars.ENABLE_RAPIDS_PUBLISH == 'true' }}
     needs: wheel-build-libcugraph
     secrets:
       CONDA_RAPIDSAI_WHEELS_NIGHTLY_TOKEN: ${{ secrets.CONDA_RAPIDSAI_WHEELS_NIGHTLY_TOKEN }}
@@ -164,6 +166,7 @@ jobs:
       packages: read
       pull-requests: read
   wheel-publish-pylibcugraph:
+    if: ${{ vars.ENABLE_RAPIDS_PUBLISH == 'true' }}
     needs: wheel-build-pylibcugraph
     secrets:
       CONDA_RAPIDSAI_WHEELS_NIGHTLY_TOKEN: ${{ secrets.CONDA_RAPIDSAI_WHEELS_NIGHTLY_TOKEN }}
@@ -205,6 +208,7 @@ jobs:
       packages: read
       pull-requests: read
   wheel-publish-cugraph:
+    if: ${{ vars.ENABLE_RAPIDS_PUBLISH == 'true' }}
     needs: wheel-build-cugraph
     secrets:
       CONDA_RAPIDSAI_WHEELS_NIGHTLY_TOKEN: ${{ secrets.CONDA_RAPIDSAI_WHEELS_NIGHTLY_TOKEN }}
@@ -225,6 +229,7 @@ jobs:
       packages: read
       pull-requests: read
   devcontainers:
+    if: ${{ vars.ENABLE_RAPIDS_PUBLISH == 'true' }}
     name: Build devcontainers
     secrets: inherit  # zizmor: ignore[secrets-inherit]
     uses: rapidsai/shared-workflows/.github/workflows/build-devcontainers.yaml@main

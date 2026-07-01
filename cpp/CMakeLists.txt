@@ -500,6 +500,17 @@ set(CUGRAPH_MG_SOURCES
     src/community/approx_weighted_matching_mg_v32_e32.cu
 )
 
+set(CUGRAPH_NATIVE_SOURCES
+    ${CUGRAPH_COMMON_SOURCES}
+    ${CUGRAPH_MTMG_SOURCES}
+    ${CUGRAPH_SG_SOURCES}
+    ${CUGRAPH_MG_SOURCES}
+)
+
+include(cmake/sources/core.cmake)
+include(cmake/sources/algorithms.cmake)
+include(cmake/sources/sampling.cmake)
+
 add_library(cugraph ${CUGRAPH_SG_SOURCES})
 add_library(cugraph::cugraph ALIAS cugraph)
 
@@ -639,7 +650,7 @@ target_link_libraries(cugraph_mtmg PRIVATE cugraph_common)
 ################################################################################
 # - C-API library --------------------------------------------------------------
 
-add_library(cugraph_c
+set(CUGRAPH_C_API_SOURCES
         src/c_api/resource_handle.cpp
         src/c_api/array.cpp
         src/c_api/degrees.cu
@@ -693,6 +704,11 @@ add_library(cugraph_c
         src/c_api/legacy_mst.cpp
         src/c_api/extract_vertex_list.cpp
         )
+include(cmake/sources/c_api_core.cmake)
+include(cmake/sources/c_api_algorithms.cmake)
+include(cmake/sources/c_api_sampling.cmake)
+
+add_library(cugraph_c ${CUGRAPH_C_API_SOURCES})
 add_library(cugraph::cugraph_c ALIAS cugraph_c)
 
 # Currently presuming we aren't calling any CUDA kernels in cugraph_c

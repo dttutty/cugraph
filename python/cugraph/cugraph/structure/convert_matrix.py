@@ -1,10 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
-# this file is pure python and no need to be a cython file. Once cugraph's
-# issue #146 is addressed, this file's extension should be changed from .pyx to
-# .py and should be located outside the python/cugraph/bindings directory.
-
 import cudf
 import dask_cudf
 

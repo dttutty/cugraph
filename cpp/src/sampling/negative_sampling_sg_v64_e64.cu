@@ -5,7 +5,6 @@
 
 #include "negative_sampling_impl.cuh"
 
-#include <cugraph/algorithms.hpp>
 #include <cugraph/export.hpp>
 #include <cugraph/sampling_functions.hpp>
 

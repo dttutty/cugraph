@@ -8,6 +8,7 @@
 cmake_minimum_required(VERSION 4.0 FATAL_ERROR)
 
 include(../../cmake/rapids_config.cmake)
+include(../../cmake/python_package_prefixes.cmake)
 
 include(rapids-cuda)
 rapids_cuda_init_architectures(libcugraph-python)
@@ -18,15 +19,22 @@ project(
   LANGUAGES CXX CUDA
 )
 
-# Check if cugraph is already available. If so, it is the user's responsibility to ensure that the
-# CMake package is also available at build time of Python packages that need libcugraph.
-find_package(cugraph "${RAPIDS_VERSION}")
+cugraph_append_python_package_cmake_prefixes()
 
-if(cugraph_FOUND)
+option(
+  LIBCUGRAPH_PYTHON_USE_INSTALLED_CUGRAPH
+  "Skip the bundled native libcugraph build and use an installed cugraph CMake package."
+  OFF
+)
+
+if(LIBCUGRAPH_PYTHON_USE_INSTALLED_CUGRAPH)
+  find_package(cugraph "${RAPIDS_VERSION}" REQUIRED)
   return()
 endif()
 
-unset(cugraph_FOUND)
+if(NOT DEFINED CMAKE_INSTALL_LIBDIR)
+  set(CMAKE_INSTALL_LIBDIR lib64)
+endif()
 
 # --- cugraph ---#
 set(BUILD_TESTS OFF)

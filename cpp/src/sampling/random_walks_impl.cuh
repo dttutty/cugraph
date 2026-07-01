@@ -7,7 +7,6 @@
 
 #include "detail/shuffle_wrappers.hpp"
 
-#include <cugraph/algorithms.hpp>
 #include <cugraph/detail/utility_wrappers.hpp>
 #include <cugraph/edge_src_dst_property.hpp>
 #include <cugraph/graph.hpp>

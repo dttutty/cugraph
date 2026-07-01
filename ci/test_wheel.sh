@@ -11,14 +11,10 @@ arch=$(uname -m)
 if [[ "${arch}" == "aarch64" && ${RAPIDS_BUILD_TYPE} == "pull-request" ]]; then
     python ./ci/wheel_smoke_test_"${package_name}".py
 else
-    python_package_name=${package_name//-/_}
-
     # Test runs that include tests that use dask require
     # --import-mode=append. See test_python.sh for details.
-    # FIXME: Adding PY_IGNORE_IMPORTMISMATCH=1 to workaround conftest.py import
-    # mismatch error seen by nx-cugraph after using pytest 8 and
-    # --import-mode=append.
-    RAPIDS_DATASET_ROOT_DIR=$(pwd)/datasets \
+    # FIXME: Adding PY_IGNORE_IMPORTMISMATCH=1 to work around conftest.py
+    # import mismatch errors seen with pytest 8 and --import-mode=append.
     PY_IGNORE_IMPORTMISMATCH=1 \
     DASK_WORKER_DEVICES="0" \
     DASK_DISTRIBUTED__SCHEDULER__WORKER_TTL="1000s" \
@@ -28,5 +24,5 @@ else
        -v \
        --import-mode=append \
        --benchmark-disable \
-       "./python/${package_name}/${python_package_name}/tests"
+       "./python/${package_name}/tests"
 fi

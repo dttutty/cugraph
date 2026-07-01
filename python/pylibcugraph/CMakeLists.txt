@@ -8,6 +8,7 @@
 cmake_minimum_required(VERSION 4.0 FATAL_ERROR)
 
 include(../../cmake/rapids_config.cmake)
+include(../../cmake/python_package_prefixes.cmake)
 
 # We always need CUDA for cuML because the raft dependency brings in a
 # header-only cuco dependency that enables CUDA unconditionally.
@@ -19,6 +20,8 @@ project(
   VERSION "${RAPIDS_VERSION}"
   LANGUAGES CXX CUDA
 )
+
+cugraph_append_python_package_cmake_prefixes()
 
 find_package(cugraph "${RAPIDS_VERSION}" REQUIRED)
 

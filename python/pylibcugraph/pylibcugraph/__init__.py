@@ -13,6 +13,7 @@ else:
     del libcugraph
 
 import pylibcugraph.comms
+import pylibcugraph.legacy as legacy
 
 from pylibcugraph.graphs import SGGraph, MGGraph
 

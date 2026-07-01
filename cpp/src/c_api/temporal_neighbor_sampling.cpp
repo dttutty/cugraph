@@ -16,9 +16,9 @@
 #include <cugraph_c/algorithms.h>
 #include <cugraph_c/sampling_algorithms.h>
 
-#include <cugraph/algorithms.hpp>
 #include <cugraph/arithmetic_variant_types.hpp>
 #include <cugraph/detail/utility_wrappers.hpp>
+#include <cugraph/graph_functions.hpp>
 #include <cugraph/sampling_functions.hpp>
 #include <cugraph/shuffle_functions.hpp>
 #include <cugraph/utilities/device_comm.hpp>

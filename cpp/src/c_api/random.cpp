@@ -13,6 +13,8 @@
 
 #include <cugraph_c/algorithms.h>
 
+#include <cugraph/arithmetic_variant_types.hpp>
+#include <cugraph/graph_functions.hpp>
 #include <cugraph/utilities/host_scalar_comm.hpp>
 
 namespace {

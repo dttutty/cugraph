@@ -1,0 +1,58 @@
+name: sync public fork
+
+on:
+  push:
+    branches:
+      - "main"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    if: ${{ github.repository == 'dttutty/cugraph-private' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out private main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Configure public repository deploy key
+        env:
+          PUBLIC_REPO_DEPLOY_KEY: ${{ secrets.PUBLIC_REPO_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${PUBLIC_REPO_DEPLOY_KEY}" > ~/.ssh/public_repo_deploy_key
+          chmod 600 ~/.ssh/public_repo_deploy_key
+
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<'EOF'
+          Host github.com
+            IdentityFile ~/.ssh/public_repo_deploy_key
+            IdentitiesOnly yes
+          EOF
+
+      - name: Push private main to public fork
+        run: |
+          set -euo pipefail
+
+          git remote add public git@github.com:dttutty/cugraph.git
+
+          if git ls-remote --exit-code --heads public main > /tmp/public-main; then
+            expected_sha="$(cut -f1 /tmp/public-main)"
+            git push \
+              --force-with-lease=refs/heads/main:"${expected_sha}" \
+              public \
+              HEAD:main
+          else
+            git push public HEAD:main
+          fi

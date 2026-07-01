@@ -16,7 +16,7 @@
 #include <cugraph/algorithms.hpp>
 #include <cugraph/detail/utility_wrappers.hpp>
 #include <cugraph/graph_functions.hpp>
-#include <cugraph/sampling_functions.hpp>
+#include <cugraph/lookup_functions.hpp>
 
 #include <raft/core/handle.hpp>
 
