@@ -29,4 +29,4 @@ include(rapids-cython-core)
 
 rapids_cython_init()
 
-add_subdirectory(pylibcugraph)
+add_subdirectory(src/pylibcugraph)

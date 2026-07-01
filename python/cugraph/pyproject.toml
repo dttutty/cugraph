@@ -9,7 +9,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
-testpaths = ["cugraph/tests"]
+testpaths = ["tests"]
 
 [project]
 name = "cugraph"
@@ -68,14 +68,32 @@ cugraph_smoke_check = "cugraph._doctor_check:cugraph_smoke_check"
 Homepage = "https://github.com/rapidsai/cugraph"
 Documentation = "https://docs.rapids.ai/api/cugraph/stable/"
 
-[tool.setuptools.packages.find]
-include = ["cugraph", "cugraph.*"]
-
 [tool.setuptools.dynamic]
-version = { file = ["cugraph/VERSION"] }
+version = { file = ["src/cugraph/VERSION"] }
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = [
+    "src",
+]
+include = [
+    "cugraph*",
+    "cugraph.*",
+]
 
 [tool.setuptools.package-data]
-cugraph = ["VERSION", "datasets/datasets_config.yaml", "datasets/metadata/*.yaml"]
+cugraph = [
+    "GIT_COMMIT",
+    "VERSION",
+]
+"cugraph.datasets" = [
+    "datasets_config.yaml",
+]
+"cugraph.datasets.metadata" = [
+    "*.yaml",
+]
 
 [tool.pydistcheck]
 select = [

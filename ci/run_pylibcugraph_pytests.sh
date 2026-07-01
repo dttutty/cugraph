@@ -5,6 +5,6 @@
 set -euo pipefail
 
 # Support invoking run_pylibcugraph_pytests.sh outside the script directory
-cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../python/pylibcugraph/pylibcugraph
+cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../python/pylibcugraph
 
 pytest --cache-clear "$@" tests

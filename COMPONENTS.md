@@ -92,9 +92,9 @@ High-level Python algorithms are the public `cugraph` package layered over
 
 Main paths:
 
-- `python/cugraph/cugraph`
-- `python/cugraph/cugraph/dask`
-- `python/cugraph/cugraph/tests`
+- `python/cugraph/src/cugraph`
+- `python/cugraph/src/cugraph/dask`
+- `python/cugraph/tests`
 
 Typical responsibilities:
 

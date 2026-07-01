@@ -57,8 +57,8 @@ repos:
             [.]flake8$
         exclude: |
           (?x)^(
-            python/cugraph/cugraph/tests/structure/test_hypergraph[.]py$|
-            python/cugraph/cugraph/structure/hypergraph[.]py$|
+            python/cugraph/tests/structure/test_hypergraph[.]py$|
+            python/cugraph/src/cugraph/structure/hypergraph[.]py$|
             cpp/src/generators/scramble[.]cuh$|
             cpp/tests/utilities/cxxopts[.]hpp$
           )
@@ -67,8 +67,8 @@ repos:
         args: [--fix, --spdx, "--spdx-license-identifier=Apache-2.0 AND BSD-3-Clause"]
         files: |
           (?x)^(
-            python/cugraph/cugraph/tests/structure/test_hypergraph[.]py$|
-            python/cugraph/cugraph/structure/hypergraph[.]py$
+            python/cugraph/tests/structure/test_hypergraph[.]py$|
+            python/cugraph/src/cugraph/structure/hypergraph[.]py$
           )
       - id: verify-copyright
         name: verify-copyright-iu

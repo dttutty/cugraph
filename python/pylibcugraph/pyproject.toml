@@ -10,7 +10,7 @@ requires = [
 build-backend = "rapids_build_backend.build"
 
 [tool.pytest.ini_options]
-testpaths = ["pylibcugraph/tests"]
+testpaths = ["tests"]
 
 [project]
 name = "pylibcugraph"
@@ -61,17 +61,17 @@ cmake.version = "CMakeLists.txt"
 minimum-version = "build-system.requires"
 ninja.make-fallback = false
 sdist.reproducible = true
-wheel.packages = ["pylibcugraph"]
+wheel.packages = ["src/pylibcugraph"]
 wheel.py-api = "cp311" # overridden in CI builds by arguments from `ci/build_wheel_*.sh` scripts.
 
 [tool.scikit-build.metadata.version]
 provider = "scikit_build_core.metadata.regex"
-input = "pylibcugraph/VERSION"
+input = "src/pylibcugraph/VERSION"
 regex = "(?P<value>.*)"
 
 [tool.rapids-build-backend]
 build-backend = "scikit_build_core.build"
-commit-files = ["pylibcugraph/GIT_COMMIT"]
+commit-files = ["src/pylibcugraph/GIT_COMMIT"]
 dependencies-file = "../../dependencies.yaml"
 requires = [
     "cmake>=4.0",

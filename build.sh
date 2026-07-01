@@ -112,7 +112,7 @@ function buildDefault {
 
 function cleanPythonDir {
     pushd "$1" > /dev/null
-    rm -rf dist dask-worker-space cugraph/raft ./*.egg-info
+    rm -rf dist dask-worker-space cugraph/raft src/cugraph/raft ./*.egg-info src/*.egg-info
     find . -type d -name __pycache__ -print0 | xargs -0 rm -rf
     find . -type d -name build -print0 | xargs -0 rm -rf
     find . -type d -name dist -print0 | xargs -0 rm -rf

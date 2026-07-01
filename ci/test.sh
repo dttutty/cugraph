@@ -74,14 +74,14 @@ fi
 
 if hasArg "--run-python-tests"; then
     echo "Python pytest for pylibcugraph..."
-    cd "${CUGRAPH_ROOT}"/python/pylibcugraph/pylibcugraph
-    pytest -sv --cache-clear --junitxml="${CUGRAPH_ROOT}"/junit-pylibcugraph-pytests.xml --cov-config=.coveragerc --cov=pylibcugraph --cov-report=xml:"{WORKSPACE}"/python/pylibcugraph/pylibcugraph-coverage.xml --cov-report term --ignore=raft --benchmark-disable
+    cd "${CUGRAPH_ROOT}"/python/pylibcugraph
+    pytest -sv --cache-clear --junitxml="${CUGRAPH_ROOT}"/junit-pylibcugraph-pytests.xml --cov-config=../../.coveragerc --cov=pylibcugraph --cov-report=xml:"{WORKSPACE}"/python/pylibcugraph/pylibcugraph-coverage.xml --cov-report term --benchmark-disable tests
     echo "Ran Python pytest for pylibcugraph : return code was: $?, test script exit code is now: $EXITCODE"
 
     echo "Python pytest for cuGraph (single-GPU only)..."
     conda list
-    cd "${CUGRAPH_ROOT}"/python/cugraph/cugraph
-    pytest -sv -m sg --cache-clear --junitxml="${CUGRAPH_ROOT}"/junit-cugraph-pytests.xml --cov-config=.coveragerc --cov=cugraph --cov-report=xml:"{WORKSPACE}"/python/cugraph/cugraph-coverage.xml --cov-report term --ignore=raft --benchmark-disable
+    cd "${CUGRAPH_ROOT}"/python/cugraph
+    pytest -sv -m sg --cache-clear --junitxml="${CUGRAPH_ROOT}"/junit-cugraph-pytests.xml --cov-config=../../.coveragerc --cov=cugraph --cov-report=xml:"{WORKSPACE}"/python/cugraph/cugraph-coverage.xml --cov-report term --benchmark-disable tests
     echo "Ran Python pytest for cugraph : return code was: $?, test script exit code is now: $EXITCODE"
 
     echo "Python benchmarks for cuGraph (running as tests)..."
