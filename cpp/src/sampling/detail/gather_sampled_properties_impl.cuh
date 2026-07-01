@@ -48,7 +48,8 @@ gather_sampled_properties(
   rmm::device_uvector<vertex_t>&& majors,
   rmm::device_uvector<vertex_t>&& minors,
   arithmetic_device_uvector_t&& multi_index,
-  raft::host_span<edge_arithmetic_property_view_t<edge_t>> edge_property_views)
+  raft::host_span<edge_arithmetic_property_view_t<edge_t>> edge_property_views,
+  bool edgelist_is_edge_partitioned)
 {
   const bool store_transposed = false;
 
@@ -71,36 +72,38 @@ gather_sampled_properties(
   // Shuffle majors/minors/multi-index
   //
   if constexpr (multi_gpu) {
-    std::vector<cugraph::arithmetic_device_uvector_t> edge_properties{};
+    if (!edgelist_is_edge_partitioned) {
+      std::vector<cugraph::arithmetic_device_uvector_t> edge_properties{};
 
-    original_positions.resize(majors.size(), handle.get_stream());
-    cugraph::sequence(rmm::exec_policy(handle.get_stream()),
-                      original_positions.data(),
-                      original_positions.data() + original_positions.size(),
-                      size_t{0});
-    edge_properties.push_back(std::move(original_positions));
-    original_gpu_ids.resize(majors.size(), handle.get_stream());
-    cugraph::fill(rmm::exec_policy(handle.get_stream()),
-                  original_gpu_ids.data(),
-                  (original_gpu_ids.data()) + (original_gpu_ids.size()),
-                  handle.get_comms().get_rank());
-    edge_properties.push_back(std::move(original_gpu_ids));
+      original_positions.resize(majors.size(), handle.get_stream());
+      cugraph::sequence(rmm::exec_policy(handle.get_stream()),
+                        original_positions.data(),
+                        original_positions.data() + original_positions.size(),
+                        size_t{0});
+      edge_properties.push_back(std::move(original_positions));
+      original_gpu_ids.resize(majors.size(), handle.get_stream());
+      cugraph::fill(rmm::exec_policy(handle.get_stream()),
+                    original_gpu_ids.data(),
+                    (original_gpu_ids.data()) + (original_gpu_ids.size()),
+                    handle.get_comms().get_rank());
+      edge_properties.push_back(std::move(original_gpu_ids));
 
-    if (std::holds_alternative<rmm::device_uvector<edge_t>>(multi_index))
-      edge_properties.push_back(std::move(multi_index));
+      if (std::holds_alternative<rmm::device_uvector<edge_t>>(multi_index))
+        edge_properties.push_back(std::move(multi_index));
 
-    std::tie(majors, minors, edge_properties) =
-      shuffle_int_edges(handle,
-                        std::move(majors),
-                        std::move(minors),
-                        std::move(edge_properties),
-                        store_transposed,
-                        graph_view.vertex_partition_range_lasts(),
-                        std::nullopt);
+      std::tie(majors, minors, edge_properties) =
+        shuffle_int_edges(handle,
+                          std::move(majors),
+                          std::move(minors),
+                          std::move(edge_properties),
+                          store_transposed,
+                          graph_view.vertex_partition_range_lasts(),
+                          std::nullopt);
 
-    original_positions = std::move(std::get<rmm::device_uvector<size_t>>(edge_properties[0]));
-    original_gpu_ids   = std::move(std::get<rmm::device_uvector<int>>(edge_properties[1]));
-    if (edge_properties.size() > 2) multi_index = std::move(edge_properties[2]);
+      original_positions = std::move(std::get<rmm::device_uvector<size_t>>(edge_properties[0]));
+      original_gpu_ids   = std::move(std::get<rmm::device_uvector<int>>(edge_properties[1]));
+      if (edge_properties.size() > 2) multi_index = std::move(edge_properties[2]);
+    }
   }
 
   edge_list.insert(
@@ -142,74 +145,98 @@ gather_sampled_properties(
 
   // Now shuffle back
   if constexpr (multi_gpu) {
-    result_properties.push_back(std::move(majors));
-    result_properties.push_back(std::move(minors));
-    result_properties.push_back(std::move(original_positions));
+    if (!edgelist_is_edge_partitioned) {
+      result_properties.push_back(std::move(majors));
+      result_properties.push_back(std::move(minors));
+      result_properties.push_back(std::move(original_positions));
 
-    result_properties = cugraph::shuffle_properties(
-      handle, std::move(original_gpu_ids), std::move(result_properties));
+      result_properties =
+        cugraph::shuffle_properties(handle, std::move(original_gpu_ids), std::move(result_properties));
 
-    original_positions = std::move(std::get<rmm::device_uvector<size_t>>(result_properties.back()));
-    result_properties.pop_back();
-    minors = std::move(std::get<rmm::device_uvector<vertex_t>>(result_properties.back()));
-    result_properties.pop_back();
-    majors = std::move(std::get<rmm::device_uvector<vertex_t>>(result_properties.back()));
-    result_properties.pop_back();
+      original_positions =
+        std::move(std::get<rmm::device_uvector<size_t>>(result_properties.back()));
+      result_properties.pop_back();
+      minors = std::move(std::get<rmm::device_uvector<vertex_t>>(result_properties.back()));
+      result_properties.pop_back();
+      majors = std::move(std::get<rmm::device_uvector<vertex_t>>(result_properties.back()));
+      result_properties.pop_back();
 
-    rmm::device_uvector<size_t> property_position(majors.size(), handle.get_stream());
-    cugraph::sequence(rmm::exec_policy(handle.get_stream()),
-                      property_position.data(),
-                      property_position.data() + property_position.size(),
-                      size_t{0});
-    thrust::sort_by_key(handle.get_thrust_policy(),
-                        original_positions.begin(),
-                        original_positions.end(),
-                        property_position.begin());
+      rmm::device_uvector<size_t> property_position(majors.size(), handle.get_stream());
+      cugraph::sequence(rmm::exec_policy(handle.get_stream()),
+                        property_position.data(),
+                        property_position.data() + property_position.size(),
+                        size_t{0});
+      thrust::sort_by_key(handle.get_thrust_policy(),
+                          original_positions.begin(),
+                          original_positions.end(),
+                          property_position.begin());
 
-    {
-      rmm::device_uvector<vertex_t> tmp(majors.size(), handle.get_stream());
+      {
+        rmm::device_uvector<vertex_t> tmp(majors.size(), handle.get_stream());
 
-      thrust::gather(handle.get_thrust_policy(),
-                     property_position.begin(),
-                     property_position.end(),
-                     majors.begin(),
-                     tmp.begin());
+        thrust::gather(handle.get_thrust_policy(),
+                       property_position.begin(),
+                       property_position.end(),
+                       majors.begin(),
+                       tmp.begin());
 
-      majors = std::move(tmp);
-    }
+        majors = std::move(tmp);
+      }
 
-    {
-      rmm::device_uvector<vertex_t> tmp(minors.size(), handle.get_stream());
+      {
+        rmm::device_uvector<vertex_t> tmp(minors.size(), handle.get_stream());
 
-      thrust::gather(handle.get_thrust_policy(),
-                     property_position.begin(),
-                     property_position.end(),
-                     minors.begin(),
-                     tmp.begin());
+        thrust::gather(handle.get_thrust_policy(),
+                       property_position.begin(),
+                       property_position.end(),
+                       minors.begin(),
+                       tmp.begin());
 
-      minors = std::move(tmp);
-    }
+        minors = std::move(tmp);
+      }
 
-    std::for_each(result_properties.begin(),
-                  result_properties.end(),
-                  [&handle, &property_position](auto& property) {
-                    cugraph::variant_type_dispatch(
-                      property, [&handle, &property_position](auto& prop) {
-                        using T = typename std::remove_reference<decltype(prop)>::type::value_type;
-                        rmm::device_uvector<T> tmp(prop.size(), handle.get_stream());
+      std::for_each(result_properties.begin(),
+                    result_properties.end(),
+                    [&handle, &property_position](auto& property) {
+                      cugraph::variant_type_dispatch(
+                        property, [&handle, &property_position](auto& prop) {
+                          using T = typename std::remove_reference<decltype(prop)>::type::value_type;
+                          rmm::device_uvector<T> tmp(prop.size(), handle.get_stream());
 
-                        thrust::gather(handle.get_thrust_policy(),
-                                       property_position.begin(),
-                                       property_position.end(),
-                                       prop.begin(),
-                                       tmp.begin());
+                          thrust::gather(handle.get_thrust_policy(),
+                                         property_position.begin(),
+                                         property_position.end(),
+                                         prop.begin(),
+                                         tmp.begin());
 
-                        prop = std::move(tmp);
+                          prop = std::move(tmp);
+                        });
                       });
-                  });
-  }
+      }
+    }
 
   return std::make_tuple(std::move(majors), std::move(minors), std::move(result_properties));
+}
+
+template <typename vertex_t, typename edge_t, bool multi_gpu>
+std::tuple<rmm::device_uvector<vertex_t>,
+           rmm::device_uvector<vertex_t>,
+           std::vector<arithmetic_device_uvector_t>>
+gather_sampled_properties(
+  raft::handle_t const& handle,
+  graph_view_t<vertex_t, edge_t, false, multi_gpu> const& graph_view,
+  rmm::device_uvector<vertex_t>&& majors,
+  rmm::device_uvector<vertex_t>&& minors,
+  arithmetic_device_uvector_t&& multi_index,
+  raft::host_span<edge_arithmetic_property_view_t<edge_t>> edge_property_views)
+{
+  return gather_sampled_properties(handle,
+                                   graph_view,
+                                   std::move(majors),
+                                   std::move(minors),
+                                   std::move(multi_index),
+                                   edge_property_views,
+                                   false);
 }
 
 }  // namespace detail

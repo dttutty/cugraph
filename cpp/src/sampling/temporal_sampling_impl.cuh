@@ -331,36 +331,78 @@ temporal_neighbor_sample_impl(
 
     if (level_Ks) {
       if (no_duplicates_size > 0) {
-        auto [srcs, dsts, hop_multi_index, labels] = sample_edges(
-          handle,
-          rng_state,
-          temporal_graph_view,
-          n_edge_props,
-          edge_type_view
-            ? std::make_optional<edge_arithmetic_property_view_t<edge_t>>(*edge_type_view)
-            : std::nullopt,
-          edge_bias_view
-            ? std::make_optional<edge_arithmetic_property_view_t<edge_t>>(*edge_bias_view)
-            : std::nullopt,
-          raft::device_span<vertex_t const>{frontier_vertices_no_duplicates.data(),
-                                            frontier_vertices_no_duplicates.size()},
+        rmm::device_uvector<vertex_t> srcs(0, handle.get_stream());
+        rmm::device_uvector<vertex_t> dsts(0, handle.get_stream());
+        std::vector<cugraph::arithmetic_device_uvector_t> sampled_edge_properties{};
+        std::optional<rmm::device_uvector<label_t>> labels{std::nullopt};
+        auto active_majors = raft::device_span<vertex_t const>{
+          frontier_vertices_no_duplicates.data(), frontier_vertices_no_duplicates.size()};
+        auto active_major_labels =
           frontier_vertex_labels_no_duplicates
             ? std::make_optional(
                 raft::device_span<label_t const>{frontier_vertex_labels_no_duplicates->data(),
                                                  frontier_vertex_labels_no_duplicates->size()})
-            : std::nullopt,
-          raft::host_span<size_t const>(level_Ks->data(), level_Ks->size()),
-          sampling_flags.with_replacement);
+            : std::nullopt;
 
-        std::vector<cugraph::arithmetic_device_uvector_t> sampled_edge_properties{};
-        if (n_edge_props > 0) {
-          std::tie(srcs, dsts, sampled_edge_properties) =
-            gather_sampled_properties(handle,
-                                      temporal_graph_view,
-                                      std::move(srcs),
-                                      std::move(dsts),
-                                      std::move(hop_multi_index),
-                                      edge_prop_span);
+        if ((n_edge_props == 1) && !temporal_graph_view.is_multigraph()) {
+          std::tie(srcs, dsts, sampled_edge_properties, labels) = sample_edges_with_properties(
+            handle,
+            rng_state,
+            temporal_graph_view,
+            edge_prop_span,
+            edge_type_view
+              ? std::make_optional<edge_arithmetic_property_view_t<edge_t>>(*edge_type_view)
+              : std::nullopt,
+            edge_bias_view
+              ? std::make_optional<edge_arithmetic_property_view_t<edge_t>>(*edge_bias_view)
+              : std::nullopt,
+            active_majors,
+            active_major_labels,
+            raft::host_span<size_t const>(level_Ks->data(), level_Ks->size()),
+            sampling_flags.with_replacement);
+        } else {
+          cugraph::arithmetic_device_uvector_t hop_multi_index{std::monostate{}};
+          if (n_edge_props > 0) {
+            std::tie(srcs, dsts, hop_multi_index, labels) = sample_edges_edge_owner(
+              handle,
+              rng_state,
+              temporal_graph_view,
+              n_edge_props,
+              edge_type_view
+                ? std::make_optional<edge_arithmetic_property_view_t<edge_t>>(*edge_type_view)
+                : std::nullopt,
+              edge_bias_view
+                ? std::make_optional<edge_arithmetic_property_view_t<edge_t>>(*edge_bias_view)
+                : std::nullopt,
+              active_majors,
+              active_major_labels,
+              raft::host_span<size_t const>(level_Ks->data(), level_Ks->size()),
+              sampling_flags.with_replacement);
+            std::tie(srcs, dsts, sampled_edge_properties) =
+              gather_sampled_properties(handle,
+                                        temporal_graph_view,
+                                        std::move(srcs),
+                                        std::move(dsts),
+                                        std::move(hop_multi_index),
+                                        edge_prop_span,
+                                        true);
+          } else {
+            std::tie(srcs, dsts, hop_multi_index, labels) = sample_edges(
+              handle,
+              rng_state,
+              temporal_graph_view,
+              n_edge_props,
+              edge_type_view
+                ? std::make_optional<edge_arithmetic_property_view_t<edge_t>>(*edge_type_view)
+                : std::nullopt,
+              edge_bias_view
+                ? std::make_optional<edge_arithmetic_property_view_t<edge_t>>(*edge_bias_view)
+                : std::nullopt,
+              active_majors,
+              active_major_labels,
+              raft::host_span<size_t const>(level_Ks->data(), level_Ks->size()),
+              sampling_flags.with_replacement);
+          }
         }
 
         result_vector_sizes.push_back(srcs.size());
@@ -412,8 +454,45 @@ temporal_neighbor_sample_impl(
       }
 
       if (has_duplicates_size > 0) {
-        auto [srcs, dsts, hop_multi_index, labels] =
-          temporal_sample_edges<vertex_t, edge_t, time_stamp_t, multi_gpu>(
+        rmm::device_uvector<vertex_t> srcs(0, handle.get_stream());
+        rmm::device_uvector<vertex_t> dsts(0, handle.get_stream());
+        std::vector<cugraph::arithmetic_device_uvector_t> sampled_edge_properties{};
+        std::optional<rmm::device_uvector<label_t>> labels{std::nullopt};
+        auto active_majors = raft::device_span<vertex_t const>{
+          frontier_vertices_has_duplicates.data(), frontier_vertices_has_duplicates.size()};
+        auto active_major_times = raft::device_span<time_stamp_t const>{
+          frontier_vertex_times_has_duplicates.data(), frontier_vertex_times_has_duplicates.size()};
+        auto active_major_labels =
+          frontier_vertex_labels_has_duplicates
+            ? std::make_optional(
+                raft::device_span<label_t const>{frontier_vertex_labels_has_duplicates->data(),
+                                                 frontier_vertex_labels_has_duplicates->size()})
+            : std::nullopt;
+
+        if ((n_edge_props == 1) && !graph_view.is_multigraph()) {
+          std::tie(srcs, dsts, sampled_edge_properties, labels) =
+            temporal_sample_edges_with_properties<vertex_t, edge_t, time_stamp_t, multi_gpu>(
+              handle,
+              rng_state,
+              graph_view,
+              edge_prop_span,
+              edge_start_time_view,
+              edge_type_view
+                ? std::make_optional<edge_arithmetic_property_view_t<edge_t>>(*edge_type_view)
+                : std::nullopt,
+              edge_bias_view
+                ? std::make_optional<edge_arithmetic_property_view_t<edge_t>>(*edge_bias_view)
+                : std::nullopt,
+              active_majors,
+              active_major_times,
+              active_major_labels,
+              raft::host_span<size_t const>(level_Ks->data(), level_Ks->size()),
+              sampling_flags.with_replacement,
+              sampling_flags.temporal_sampling_comparison);
+        } else {
+          cugraph::arithmetic_device_uvector_t hop_multi_index{std::monostate{}};
+          std::tie(srcs, dsts, hop_multi_index, labels) =
+            temporal_sample_edges<vertex_t, edge_t, time_stamp_t, multi_gpu>(
             handle,
             rng_state,
             graph_view,
@@ -425,28 +504,22 @@ temporal_neighbor_sample_impl(
             edge_bias_view
               ? std::make_optional<edge_arithmetic_property_view_t<edge_t>>(*edge_bias_view)
               : std::nullopt,
-            raft::device_span<vertex_t const>{frontier_vertices_has_duplicates.data(),
-                                              frontier_vertices_has_duplicates.size()},
-            raft::device_span<time_stamp_t const>{frontier_vertex_times_has_duplicates.data(),
-                                                  frontier_vertex_times_has_duplicates.size()},
-            frontier_vertex_labels_has_duplicates
-              ? std::make_optional(
-                  raft::device_span<label_t const>{frontier_vertex_labels_has_duplicates->data(),
-                                                   frontier_vertex_labels_has_duplicates->size()})
-              : std::nullopt,
+            active_majors,
+            active_major_times,
+            active_major_labels,
             raft::host_span<size_t const>(level_Ks->data(), level_Ks->size()),
             sampling_flags.with_replacement,
             sampling_flags.temporal_sampling_comparison);
 
-        std::vector<cugraph::arithmetic_device_uvector_t> sampled_edge_properties{};
-        if (n_edge_props > 0) {
-          std::tie(srcs, dsts, sampled_edge_properties) =
-            gather_sampled_properties(handle,
-                                      graph_view,
-                                      std::move(srcs),
-                                      std::move(dsts),
-                                      std::move(hop_multi_index),
-                                      edge_prop_span);
+          if (n_edge_props > 0) {
+            std::tie(srcs, dsts, sampled_edge_properties) =
+              gather_sampled_properties(handle,
+                                        graph_view,
+                                        std::move(srcs),
+                                        std::move(dsts),
+                                        std::move(hop_multi_index),
+                                        edge_prop_span);
+          }
         }
 
         size_t pos{0};
@@ -639,30 +712,34 @@ temporal_neighbor_sample_impl(
       }
     }
 
-    std::tie(
-      frontier_vertices, frontier_vertex_labels, frontier_vertex_times, vertex_used_as_source) =
-      prepare_next_frontier(
-        handle,
-        raft::device_span<vertex_t const>(frontier_vertices.data(), frontier_vertices.size()),
-        frontier_vertex_labels ? std::make_optional(raft::device_span<label_t const>(
-                                   frontier_vertex_labels->data(), frontier_vertex_labels->size()))
-                               : std::nullopt,
-        std::make_optional<raft::device_span<time_stamp_t const>>(frontier_vertex_times->data(),
-                                                                  frontier_vertex_times->size()),
-        raft::host_span<raft::device_span<vertex_t const>>{next_frontier_vertex_spans.data(),
-                                                           next_frontier_vertex_spans.size()},
-        next_frontier_vertex_label_spans
-          ? std::make_optional(raft::host_span<raft::device_span<label_t const>>{
-              next_frontier_vertex_label_spans->data(), next_frontier_vertex_label_spans->size()})
-          : std::nullopt,
-        std::make_optional(raft::host_span<raft::device_span<time_stamp_t const>>{
-          next_frontier_vertex_time_spans->data(), next_frontier_vertex_time_spans->size()}),
-        std::move(vertex_used_as_source),
-        graph_view.vertex_partition_range_lasts(),
-        sampling_flags.prior_sources_behavior,
-        sampling_flags.dedupe_sources,
-        multi_gpu,
-        do_expensive_check);
+    if ((hop + 1) < num_hops) {
+      std::tie(
+        frontier_vertices, frontier_vertex_labels, frontier_vertex_times, vertex_used_as_source) =
+        prepare_next_frontier(
+          handle,
+          raft::device_span<vertex_t const>(frontier_vertices.data(), frontier_vertices.size()),
+          frontier_vertex_labels
+            ? std::make_optional(
+                raft::device_span<label_t const>(frontier_vertex_labels->data(),
+                                                 frontier_vertex_labels->size()))
+            : std::nullopt,
+          std::make_optional<raft::device_span<time_stamp_t const>>(frontier_vertex_times->data(),
+                                                                    frontier_vertex_times->size()),
+          raft::host_span<raft::device_span<vertex_t const>>{next_frontier_vertex_spans.data(),
+                                                             next_frontier_vertex_spans.size()},
+          next_frontier_vertex_label_spans
+            ? std::make_optional(raft::host_span<raft::device_span<label_t const>>{
+                next_frontier_vertex_label_spans->data(), next_frontier_vertex_label_spans->size()})
+            : std::nullopt,
+          std::make_optional(raft::host_span<raft::device_span<time_stamp_t const>>{
+            next_frontier_vertex_time_spans->data(), next_frontier_vertex_time_spans->size()}),
+          std::move(vertex_used_as_source),
+          graph_view.vertex_partition_range_lasts(),
+          sampling_flags.prior_sources_behavior,
+          sampling_flags.dedupe_sources,
+          multi_gpu,
+          do_expensive_check);
+    }
   }
 
   auto result_size = std::reduce(result_vector_sizes.begin(), result_vector_sizes.end());

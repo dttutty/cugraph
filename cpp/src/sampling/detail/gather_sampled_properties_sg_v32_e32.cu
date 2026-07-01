@@ -21,5 +21,17 @@ gather_sampled_properties(
   arithmetic_device_uvector_t&& multi_index,
   raft::host_span<edge_arithmetic_property_view_t<int32_t>> edge_property_views);
 
+template CUGRAPH_EXPORT std::tuple<rmm::device_uvector<int32_t>,
+                                   rmm::device_uvector<int32_t>,
+                                   std::vector<arithmetic_device_uvector_t>>
+gather_sampled_properties(
+  raft::handle_t const& handle,
+  graph_view_t<int32_t, int32_t, false, false> const& graph_view,
+  rmm::device_uvector<int32_t>&& majors,
+  rmm::device_uvector<int32_t>&& minors,
+  arithmetic_device_uvector_t&& multi_index,
+  raft::host_span<edge_arithmetic_property_view_t<int32_t>> edge_property_views,
+  bool edgelist_is_edge_partitioned);
+
 }  // namespace detail
 }  // namespace cugraph

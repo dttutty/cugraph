@@ -15,7 +15,9 @@
 #include <cugraph/utilities/thrust_wrappers.hpp>
 
 #include <cuda/std/tuple>
+#include <thrust/for_each.h>
 #include <thrust/gather.h>
+#include <thrust/iterator/counting_iterator.h>
 
 #include <tuple>
 
@@ -24,6 +26,143 @@ namespace cugraph {
 namespace {
 
 enum class vertex_shuffle_mode_t { global, two_level_major, two_level_minor };
+
+template <typename T0, typename T1>
+struct packed_record_2_t {
+  T0 v0;
+  T1 v1;
+};
+
+template <typename T0, typename T1, typename T2>
+struct packed_record_3_t {
+  T0 v0;
+  T1 v1;
+  T2 v2;
+};
+
+template <typename record_t>
+rmm::device_uvector<record_t> shuffle_vertex_records(
+  raft::comms::comms_t const& comm,
+  rmm::device_uvector<record_t> const& tx_records,
+  raft::device_span<size_t const> d_tx_value_counts,
+  rmm::cuda_stream_view stream_view)
+{
+  auto [tx_counts, tx_displs, tx_dst_ranks, rx_counts, rx_displs, rx_src_ranks] =
+    cugraph::detail::compute_tx_rx_counts_displs_ranks(
+      comm, d_tx_value_counts, false, stream_view);
+
+  auto rx_buffer_size = rx_displs.size() > 0 ? rx_displs.back() + rx_counts.back() : size_t{0};
+  rmm::device_uvector<record_t> rx_records(rx_buffer_size, stream_view);
+
+  comm.device_multicast_sendrecv(tx_records.data(),
+                                 tx_counts,
+                                 tx_displs,
+                                 tx_dst_ranks,
+                                 rx_records.data(),
+                                 rx_counts,
+                                 rx_displs,
+                                 rx_src_ranks,
+                                 stream_view.value());
+
+  return rx_records;
+}
+
+template <typename vertex_t, typename T>
+void shuffle_vertex_and_property(raft::handle_t const& handle,
+                                 raft::comms::comms_t const& comm,
+                                 rmm::device_uvector<vertex_t>& vertices,
+                                 rmm::device_uvector<T>& property,
+                                 raft::device_span<size_t const> d_tx_value_counts)
+{
+  using record_t = packed_record_2_t<vertex_t, T>;
+
+  rmm::device_uvector<record_t> tx_records(vertices.size(), handle.get_stream());
+  thrust::for_each(handle.get_thrust_policy(),
+                   thrust::make_counting_iterator(size_t{0}),
+                   thrust::make_counting_iterator(vertices.size()),
+                   [vertex_first    = vertices.data(),
+                    property_first  = property.data(),
+                    tx_record_first = tx_records.data()] __device__(auto i) {
+                     tx_record_first[i] = record_t{vertex_first[i], property_first[i]};
+                   });
+
+  auto rx_records = shuffle_vertex_records(comm, tx_records, d_tx_value_counts, handle.get_stream());
+
+  rmm::device_uvector<vertex_t> rx_vertices(rx_records.size(), handle.get_stream());
+  rmm::device_uvector<T> rx_property(rx_records.size(), handle.get_stream());
+  thrust::for_each(handle.get_thrust_policy(),
+                   thrust::make_counting_iterator(size_t{0}),
+                   thrust::make_counting_iterator(rx_records.size()),
+                   [rx_record_first = rx_records.data(),
+                    vertex_first    = rx_vertices.data(),
+                    property_first  = rx_property.data()] __device__(auto i) {
+                     auto record       = rx_record_first[i];
+                     vertex_first[i]   = record.v0;
+                     property_first[i] = record.v1;
+                   });
+
+  vertices = std::move(rx_vertices);
+  property = std::move(rx_property);
+}
+
+template <typename vertex_t, typename T0, typename T1>
+void shuffle_vertex_and_two_properties(raft::handle_t const& handle,
+                                       raft::comms::comms_t const& comm,
+                                       rmm::device_uvector<vertex_t>& vertices,
+                                       rmm::device_uvector<T0>& property0,
+                                       rmm::device_uvector<T1>& property1,
+                                       rmm::device_uvector<size_t> const& property_positions,
+                                       raft::device_span<size_t const> d_tx_value_counts)
+{
+  using record_t = packed_record_3_t<vertex_t, T0, T1>;
+
+  rmm::device_uvector<T0> tmp0(property0.size(), handle.get_stream());
+  rmm::device_uvector<T1> tmp1(property1.size(), handle.get_stream());
+  thrust::gather(handle.get_thrust_policy(),
+                 property_positions.begin(),
+                 property_positions.end(),
+                 property0.begin(),
+                 tmp0.begin());
+  thrust::gather(handle.get_thrust_policy(),
+                 property_positions.begin(),
+                 property_positions.end(),
+                 property1.begin(),
+                 tmp1.begin());
+
+  rmm::device_uvector<record_t> tx_records(vertices.size(), handle.get_stream());
+  thrust::for_each(handle.get_thrust_policy(),
+                   thrust::make_counting_iterator(size_t{0}),
+                   thrust::make_counting_iterator(vertices.size()),
+                   [vertex_first    = vertices.data(),
+                    property0_first = tmp0.data(),
+                    property1_first = tmp1.data(),
+                    tx_record_first = tx_records.data()] __device__(auto i) {
+                     tx_record_first[i] =
+                       record_t{vertex_first[i], property0_first[i], property1_first[i]};
+                   });
+
+  auto rx_records = shuffle_vertex_records(comm, tx_records, d_tx_value_counts, handle.get_stream());
+
+  rmm::device_uvector<vertex_t> rx_vertices(rx_records.size(), handle.get_stream());
+  rmm::device_uvector<T0> rx_property0(rx_records.size(), handle.get_stream());
+  rmm::device_uvector<T1> rx_property1(rx_records.size(), handle.get_stream());
+  thrust::for_each(handle.get_thrust_policy(),
+                   thrust::make_counting_iterator(size_t{0}),
+                   thrust::make_counting_iterator(rx_records.size()),
+                   [rx_record_first = rx_records.data(),
+                    vertex_first    = rx_vertices.data(),
+                    property0_first = rx_property0.data(),
+                    property1_first = rx_property1.data()] __device__(auto i) {
+                     auto record         = rx_record_first[i];
+                     vertex_first[i]     = record.v0;
+                     property0_first[i] = record.v1;
+                     property1_first[i] = record.v2;
+                   });
+
+  vertices  = std::move(rx_vertices);
+  property0 = std::move(rx_property0);
+  property1 = std::move(rx_property1);
+}
 
 template <typename vertex_t, typename func_t>
 struct vertex_groupby_functor_t {
@@ -160,6 +299,17 @@ shuffle_vertices(raft::handle_t const& handle,
         raft::device_span<size_t const>(d_tx_value_counts.data(), d_tx_value_counts.size()),
         handle.get_stream(),
         large_buffer_type);
+    } else if ((vertex_properties.size() == 1) && !large_buffer_type) {
+      cugraph::variant_type_dispatch(
+        vertex_properties[0],
+        [&handle, &vertices, &this_step_comm, &d_tx_value_counts](auto& prop) {
+          shuffle_vertex_and_property(
+            handle,
+            this_step_comm,
+            vertices,
+            prop,
+            raft::device_span<size_t const>(d_tx_value_counts.data(), d_tx_value_counts.size()));
+        });
     } else if (vertex_properties.size() == 1) {
       std::tie(vertices, std::ignore) = shuffle_values(
         this_step_comm,
@@ -176,6 +326,35 @@ shuffle_vertices(raft::handle_t const& handle,
             raft::device_span<size_t const>(d_tx_value_counts.data(), d_tx_value_counts.size()),
             handle.get_stream(),
             large_buffer_type);
+        });
+    } else if ((vertex_properties.size() == 2) && !large_buffer_type) {
+      raft::device_span<size_t const> d_tx_value_counts_span(d_tx_value_counts.data(),
+                                                             d_tx_value_counts.size());
+
+      cugraph::variant_type_dispatch(
+        vertex_properties[0],
+        [&handle,
+         &vertices,
+         &this_step_comm,
+         &property_positions,
+         d_tx_value_counts_span,
+         &vertex_properties](auto& prop0) {
+          cugraph::variant_type_dispatch(
+            vertex_properties[1],
+            [&handle,
+             &vertices,
+             &this_step_comm,
+             &property_positions,
+             d_tx_value_counts_span,
+             &prop0](auto& prop1) {
+              shuffle_vertex_and_two_properties(handle,
+                                                this_step_comm,
+                                                vertices,
+                                                prop0,
+                                                prop1,
+                                                *property_positions,
+                                                d_tx_value_counts_span);
+            });
         });
     } else {
       raft::device_span<size_t const> d_tx_value_counts_span(d_tx_value_counts.data(),

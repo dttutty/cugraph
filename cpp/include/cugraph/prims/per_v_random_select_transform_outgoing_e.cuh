@@ -224,7 +224,8 @@ per_v_random_select_transform_e(raft::handle_t const& handle,
                                 raft::host_span<size_t const> Ks,
                                 bool with_replacement,
                                 std::optional<T> invalid_value,
-                                bool do_expensive_check)
+                                bool do_expensive_check,
+                                bool keep_edge_partition_output = false)
 {
   using vertex_t     = typename GraphViewType::vertex_type;
   using edge_t       = typename GraphViewType::edge_type;
@@ -510,10 +511,18 @@ per_v_random_select_transform_e(raft::handle_t const& handle,
 
   // 4. shuffle randomly selected & transformed results and update sample_offsets
 
+  assert(K_sum <= std::numeric_limits<int32_t>::max());
+  if (keep_edge_partition_output && (minor_comm_size > 1)) {
+    CUGRAPH_EXPECTS(!invalid_value,
+                    "edge-partition output does not support invalid_value padding.");
+    sample_local_nbr_indices.resize(0, handle.get_stream());
+    sample_local_nbr_indices.shrink_to_fit(handle.get_stream());
+    return std::make_tuple(std::nullopt, std::move(sample_e_op_results));
+  }
+
   auto sample_offsets = invalid_value ? std::nullopt
                                       : std::make_optional<rmm::device_uvector<size_t>>(
                                           key_list.size() + 1, handle.get_stream());
-  assert(K_sum <= std::numeric_limits<int32_t>::max());
   if (minor_comm_size > 1) {
     sample_local_nbr_indices.resize(0, handle.get_stream());
     sample_local_nbr_indices.shrink_to_fit(handle.get_stream());
@@ -713,7 +722,8 @@ per_v_random_select_transform_outgoing_e(raft::handle_t const& handle,
                                          size_t K,
                                          bool with_replacement,
                                          std::optional<T> invalid_value,
-                                         bool do_expensive_check = false)
+                                         bool do_expensive_check = false,
+                                         bool keep_edge_partition_output = false)
 {
   return detail::per_v_random_select_transform_e<false>(
     handle,
@@ -736,7 +746,8 @@ per_v_random_select_transform_outgoing_e(raft::handle_t const& handle,
     raft::host_span<size_t const>(&K, size_t{1}),
     with_replacement,
     invalid_value,
-    do_expensive_check);
+    do_expensive_check,
+    keep_edge_partition_output);
 }
 
 /**
@@ -820,7 +831,8 @@ per_v_random_select_transform_outgoing_e(raft::handle_t const& handle,
                                          raft::host_span<size_t const> Ks,
                                          bool with_replacement,
                                          std::optional<T> invalid_value,
-                                         bool do_expensive_check = false)
+                                         bool do_expensive_check = false,
+                                         bool keep_edge_partition_output = false)
 {
   return detail::per_v_random_select_transform_e<false>(
     handle,
@@ -843,7 +855,8 @@ per_v_random_select_transform_outgoing_e(raft::handle_t const& handle,
     Ks,
     with_replacement,
     invalid_value,
-    do_expensive_check);
+    do_expensive_check,
+    keep_edge_partition_output);
 }
 
 /**
@@ -956,7 +969,8 @@ per_v_random_select_transform_outgoing_e(raft::handle_t const& handle,
                                          size_t K,
                                          bool with_replacement,
                                          std::optional<T> invalid_value,
-                                         bool do_expensive_check = false)
+                                         bool do_expensive_check = false,
+                                         bool keep_edge_partition_output = false)
 {
   return detail::per_v_random_select_transform_e<false>(
     handle,
@@ -975,7 +989,8 @@ per_v_random_select_transform_outgoing_e(raft::handle_t const& handle,
     raft::host_span<size_t const>(&K, size_t{1}),
     with_replacement,
     invalid_value,
-    do_expensive_check);
+    do_expensive_check,
+    keep_edge_partition_output);
 }
 
 /**
@@ -1096,7 +1111,8 @@ per_v_random_select_transform_outgoing_e(raft::handle_t const& handle,
                                          raft::host_span<size_t const> Ks,
                                          bool with_replacement,
                                          std::optional<T> invalid_value,
-                                         bool do_expensive_check = false)
+                                         bool do_expensive_check = false,
+                                         bool keep_edge_partition_output = false)
 {
   return detail::per_v_random_select_transform_e<false>(handle,
                                                         graph_view,
@@ -1114,7 +1130,8 @@ per_v_random_select_transform_outgoing_e(raft::handle_t const& handle,
                                                         Ks,
                                                         with_replacement,
                                                         invalid_value,
-                                                        do_expensive_check);
+                                                        do_expensive_check,
+                                                        keep_edge_partition_output);
 }
 
 }  // namespace CUGRAPH_EXPORT cugraph

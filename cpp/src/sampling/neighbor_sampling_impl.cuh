@@ -267,37 +267,77 @@ neighbor_sample_impl(raft::handle_t const& handle,
                                       edge_prop_span);
         }
       } else {
-        cugraph::arithmetic_device_uvector_t hop_multi_index{std::monostate{}};
-        std::tie(srcs, dsts, hop_multi_index, labels) = sample_edges(
-          handle,
-          rng_state,
-          graph_view,
-          n_edge_props,
-          edge_type_view
-            ? std::make_optional<edge_arithmetic_property_view_t<edge_t>>(*edge_type_view)
-            : std::nullopt,
-          edge_bias_view
-            ? std::make_optional<edge_arithmetic_property_view_t<edge_t>>(*edge_bias_view)
-            : std::nullopt,
+        auto active_majors =
           hop == 0
             ? starting_vertices
-            : raft::device_span<vertex_t const>(frontier_vertices.data(), frontier_vertices.size()),
+            : raft::device_span<vertex_t const>(frontier_vertices.data(), frontier_vertices.size());
+        auto active_major_labels =
           hop == 0 ? starting_vertex_labels
           : starting_vertex_labels
             ? std::make_optional(raft::device_span<label_t const>(frontier_vertex_labels->data(),
                                                                   frontier_vertex_labels->size()))
-            : std::nullopt,
-          raft::host_span<size_t const>(level_Ks->data(), level_Ks->size()),
-          sampling_flags.with_replacement);
+            : std::nullopt;
+
         sampled_edge_properties.clear();
-        if (n_edge_props > 0) {
-          std::tie(srcs, dsts, sampled_edge_properties) =
-            gather_sampled_properties(handle,
-                                      graph_view,
-                                      std::move(srcs),
-                                      std::move(dsts),
-                                      std::move(hop_multi_index),
-                                      edge_prop_span);
+        if ((n_edge_props == 1) && !graph_view.is_multigraph()) {
+          std::tie(srcs, dsts, sampled_edge_properties, labels) = sample_edges_with_properties(
+            handle,
+            rng_state,
+            graph_view,
+            edge_prop_span,
+            edge_type_view
+              ? std::make_optional<edge_arithmetic_property_view_t<edge_t>>(*edge_type_view)
+              : std::nullopt,
+            edge_bias_view
+              ? std::make_optional<edge_arithmetic_property_view_t<edge_t>>(*edge_bias_view)
+              : std::nullopt,
+            active_majors,
+            active_major_labels,
+            raft::host_span<size_t const>(level_Ks->data(), level_Ks->size()),
+            sampling_flags.with_replacement);
+        } else {
+          cugraph::arithmetic_device_uvector_t hop_multi_index{std::monostate{}};
+          if (n_edge_props > 0) {
+            std::tie(srcs, dsts, hop_multi_index, labels) = sample_edges_edge_owner(
+              handle,
+              rng_state,
+              graph_view,
+              n_edge_props,
+              edge_type_view
+                ? std::make_optional<edge_arithmetic_property_view_t<edge_t>>(*edge_type_view)
+                : std::nullopt,
+              edge_bias_view
+                ? std::make_optional<edge_arithmetic_property_view_t<edge_t>>(*edge_bias_view)
+                : std::nullopt,
+              active_majors,
+              active_major_labels,
+              raft::host_span<size_t const>(level_Ks->data(), level_Ks->size()),
+              sampling_flags.with_replacement);
+            std::tie(srcs, dsts, sampled_edge_properties) =
+              gather_sampled_properties(handle,
+                                        graph_view,
+                                        std::move(srcs),
+                                        std::move(dsts),
+                                        std::move(hop_multi_index),
+                                        edge_prop_span,
+                                        true);
+          } else {
+            std::tie(srcs, dsts, hop_multi_index, labels) = sample_edges(
+              handle,
+              rng_state,
+              graph_view,
+              n_edge_props,
+              edge_type_view
+                ? std::make_optional<edge_arithmetic_property_view_t<edge_t>>(*edge_type_view)
+                : std::nullopt,
+              edge_bias_view
+                ? std::make_optional<edge_arithmetic_property_view_t<edge_t>>(*edge_bias_view)
+                : std::nullopt,
+              active_majors,
+              active_major_labels,
+              raft::host_span<size_t const>(level_Ks->data(), level_Ks->size()),
+              sampling_flags.with_replacement);
+          }
         }
       }
 
@@ -458,34 +498,36 @@ neighbor_sample_impl(raft::handle_t const& handle,
       }
     }
 
-    std::tie(frontier_vertices, frontier_vertex_labels, std::ignore, vertex_used_as_source) =
-      prepare_next_frontier(
-        handle,
-        hop == 0
-          ? starting_vertices
-          : raft::device_span<vertex_t const>(frontier_vertices.data(), frontier_vertices.size()),
-        hop == 0 ? starting_vertex_labels
-        : starting_vertex_labels
-          ? std::make_optional(raft::device_span<label_t const>(frontier_vertex_labels->data(),
-                                                                frontier_vertex_labels->size()))
-          : std::nullopt,
-        std::optional<raft::device_span<time_stamp_t const>>{std::nullopt},
-        raft::host_span<raft::device_span<vertex_t const>>{next_frontier_vertex_spans.data(),
-                                                           next_frontier_vertex_spans.size()},
-        next_frontier_vertex_label_spans
-          ? std::make_optional(raft::host_span<raft::device_span<label_t const>>{
-              next_frontier_vertex_label_spans->data(), next_frontier_vertex_label_spans->size()})
-          : std::nullopt,
-        next_frontier_vertex_time_spans
-          ? std::make_optional(raft::host_span<raft::device_span<time_stamp_t const>>{
-              next_frontier_vertex_time_spans->data(), next_frontier_vertex_time_spans->size()})
-          : std::nullopt,
-        std::move(vertex_used_as_source),
-        graph_view.vertex_partition_range_lasts(),
-        sampling_flags.prior_sources_behavior,
-        sampling_flags.dedupe_sources,
-        multi_gpu,
-        do_expensive_check);
+    if ((hop + 1) < num_hops) {
+      std::tie(frontier_vertices, frontier_vertex_labels, std::ignore, vertex_used_as_source) =
+        prepare_next_frontier(
+          handle,
+          hop == 0
+            ? starting_vertices
+            : raft::device_span<vertex_t const>(frontier_vertices.data(), frontier_vertices.size()),
+          hop == 0 ? starting_vertex_labels
+          : starting_vertex_labels
+            ? std::make_optional(raft::device_span<label_t const>(frontier_vertex_labels->data(),
+                                                                  frontier_vertex_labels->size()))
+            : std::nullopt,
+          std::optional<raft::device_span<time_stamp_t const>>{std::nullopt},
+          raft::host_span<raft::device_span<vertex_t const>>{next_frontier_vertex_spans.data(),
+                                                             next_frontier_vertex_spans.size()},
+          next_frontier_vertex_label_spans
+            ? std::make_optional(raft::host_span<raft::device_span<label_t const>>{
+                next_frontier_vertex_label_spans->data(), next_frontier_vertex_label_spans->size()})
+            : std::nullopt,
+          next_frontier_vertex_time_spans
+            ? std::make_optional(raft::host_span<raft::device_span<time_stamp_t const>>{
+                next_frontier_vertex_time_spans->data(), next_frontier_vertex_time_spans->size()})
+            : std::nullopt,
+          std::move(vertex_used_as_source),
+          graph_view.vertex_partition_range_lasts(),
+          sampling_flags.prior_sources_behavior,
+          sampling_flags.dedupe_sources,
+          multi_gpu,
+          do_expensive_check);
+    }
   }
 
   auto result_size = std::reduce(result_sizes.begin(), result_sizes.end());
