@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "date_utc": "2026-07-01",
+  "baseline_git_sha": null,
+  "candidate_git_sha": null,
+  "timing_definition": "max(rank0_seconds, rank1_seconds) per iteration",
+  "notes": "Exact Git SHAs were not recorded. See RESULTS.md for environment and interpretation limits.",
+  "cases": [
+    {
+      "config": {
+        "vertices": 200000,
+        "degree": 32,
+        "seeds_per_rank": 1024,
+        "fanout": [15, 15],
+        "edge_ids": false,
+        "warmup": 2,
+        "iters": 5
+      },
+      "sample_edges_per_iteration": 491520,
+      "baseline": [
+        {"iter": 0, "rank0_seconds": 0.0745592, "rank1_seconds": 0.0764846, "rank_max_seconds": 0.0764846},
+        {"iter": 1, "rank0_seconds": 0.0737677, "rank1_seconds": 0.0753638, "rank_max_seconds": 0.0753638},
+        {"iter": 2, "rank0_seconds": 0.0743158, "rank1_seconds": 0.0763773, "rank_max_seconds": 0.0763773},
+        {"iter": 3, "rank0_seconds": 0.0730048, "rank1_seconds": 0.0751021, "rank_max_seconds": 0.0751021},
+        {"iter": 4, "rank0_seconds": 0.073403, "rank1_seconds": 0.0753903, "rank_max_seconds": 0.0753903}
+      ],
+      "candidate": [
+        {"iter": 0, "rank0_seconds": 0.0706006, "rank1_seconds": 0.0727256, "rank_max_seconds": 0.0727256},
+        {"iter": 1, "rank0_seconds": 0.0705872, "rank1_seconds": 0.0730712, "rank_max_seconds": 0.0730712},
+        {"iter": 2, "rank0_seconds": 0.0710921, "rank1_seconds": 0.0733117, "rank_max_seconds": 0.0733117},
+        {"iter": 3, "rank0_seconds": 0.0708581, "rank1_seconds": 0.0732709, "rank_max_seconds": 0.0732709},
+        {"iter": 4, "rank0_seconds": 0.0714164, "rank1_seconds": 0.0733662, "rank_max_seconds": 0.0733662}
+      ]
+    },
+    {
+      "config": {
+        "vertices": 1000000,
+        "degree": 32,
+        "seeds_per_rank": 4096,
+        "fanout": [30, 30],
+        "edge_ids": false,
+        "warmup": 2,
+        "iters": 5
+      },
+      "sample_edges_per_iteration": 7618560,
+      "baseline": [
+        {"iter": 0, "rank0_seconds": 0.846192, "rank1_seconds": 0.848832, "rank_max_seconds": 0.848832},
+        {"iter": 1, "rank0_seconds": 0.840865, "rank1_seconds": 0.845922, "rank_max_seconds": 0.845922},
+        {"iter": 2, "rank0_seconds": 0.841112, "rank1_seconds": 0.84693, "rank_max_seconds": 0.84693},
+        {"iter": 3, "rank0_seconds": 0.849027, "rank1_seconds": 0.854578, "rank_max_seconds": 0.854578},
+        {"iter": 4, "rank0_seconds": 0.842105, "rank1_seconds": 0.84779, "rank_max_seconds": 0.84779}
+      ],
+      "candidate": [
+        {"iter": 0, "rank0_seconds": 0.840529, "rank1_seconds": 0.845379, "rank_max_seconds": 0.845379},
+        {"iter": 1, "rank0_seconds": 0.84716, "rank1_seconds": 0.852228, "rank_max_seconds": 0.852228},
+        {"iter": 2, "rank0_seconds": 0.843978, "rank1_seconds": 0.847132, "rank_max_seconds": 0.847132},
+        {"iter": 3, "rank0_seconds": 0.841076, "rank1_seconds": 0.84594, "rank_max_seconds": 0.84594},
+        {"iter": 4, "rank0_seconds": 0.84126, "rank1_seconds": 0.846252, "rank_max_seconds": 0.846252}
+      ]
+    },
+    {
+      "config": {
+        "vertices": 1000,
+        "degree": 4,
+        "seeds_per_rank": 16,
+        "fanout": [2, 2],
+        "edge_ids": true,
+        "warmup": 0,
+        "iters": 1
+      },
+      "sample_edges_per_iteration": 192,
+      "baseline": [
+        {"iter": 0, "rank0_seconds": 0.236223, "rank1_seconds": 0.234616, "rank_max_seconds": 0.236223}
+      ],
+      "candidate": [
+        {"iter": 0, "rank0_seconds": 0.214049, "rank1_seconds": 0.211869, "rank_max_seconds": 0.214049}
+      ]
+    },
+    {
+      "config": {
+        "vertices": 1000000,
+        "degree": 32,
+        "seeds_per_rank": 4096,
+        "fanout": [30, 30],
+        "edge_ids": true,
+        "warmup": 2,
+        "iters": 5
+      },
+      "sample_edges_per_iteration": 7618560,
+      "baseline": [
+        {"iter": 0, "rank0_seconds": 1.73237, "rank1_seconds": 1.73728, "rank_max_seconds": 1.73728},
+        {"iter": 1, "rank0_seconds": 1.73153, "rank1_seconds": 1.7366, "rank_max_seconds": 1.7366},
+        {"iter": 2, "rank0_seconds": 1.73568, "rank1_seconds": 1.74043, "rank_max_seconds": 1.74043},
+        {"iter": 3, "rank0_seconds": 1.73058, "rank1_seconds": 1.73558, "rank_max_seconds": 1.73558},
+        {"iter": 4, "rank0_seconds": 1.73094, "rank1_seconds": 1.73558, "rank_max_seconds": 1.73558}
+      ],
+      "candidate": [
+        {"iter": 0, "rank0_seconds": 0.657966, "rank1_seconds": 0.662372, "rank_max_seconds": 0.662372},
+        {"iter": 1, "rank0_seconds": 0.657725, "rank1_seconds": 0.662341, "rank_max_seconds": 0.662341},
+        {"iter": 2, "rank0_seconds": 0.658071, "rank1_seconds": 0.662007, "rank_max_seconds": 0.662007},
+        {"iter": 3, "rank0_seconds": 0.658292, "rank1_seconds": 0.663105, "rank_max_seconds": 0.663105},
+        {"iter": 4, "rank0_seconds": 0.658162, "rank1_seconds": 0.662599, "rank_max_seconds": 0.662599}
+      ]
+    },
+    {
+      "config": {
+        "vertices": 200000,
+        "degree": 32,
+        "seeds_per_rank": 1024,
+        "fanout": [15, 15],
+        "edge_ids": true,
+        "warmup": 0,
+        "iters": 1
+      },
+      "sample_edges_per_iteration": 491520,
+      "baseline": [
+        {"iter": 0, "rank0_seconds": 0.337478, "rank1_seconds": 0.336805, "rank_max_seconds": 0.337478}
+      ],
+      "candidate": [
+        {"iter": 0, "rank0_seconds": 0.354117, "rank1_seconds": 0.351964, "rank_max_seconds": 0.354117}
+      ]
+    }
+  ]
+}
